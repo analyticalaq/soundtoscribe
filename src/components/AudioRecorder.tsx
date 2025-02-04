@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Mic, Square, Copy, Check, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { pipeline } from '@huggingface/transformers';
 import AudioVisualizer from './AudioVisualizer';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -10,9 +11,47 @@ const AudioRecorder = () => {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [transcription, setTranscription] = useState('');
   const [isCopied, setIsCopied] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const transcriptionPipelineRef = useRef<any>(null);
+
+  const initTranscriptionPipeline = async () => {
+    if (!transcriptionPipelineRef.current) {
+      try {
+        transcriptionPipelineRef.current = await pipeline(
+          'automatic-speech-recognition',
+          'onnx-community/whisper-tiny.en',
+          { device: 'webgpu' }
+        );
+      } catch (error) {
+        console.error('Error initializing transcription pipeline:', error);
+        toast.error('Failed to initialize transcription. Please try again.');
+      }
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      setIsTranscribing(true);
+      await initTranscriptionPipeline();
+      
+      if (!transcriptionPipelineRef.current) {
+        throw new Error('Transcription pipeline not initialized');
+      }
+
+      const result = await transcriptionPipelineRef.current(audioBlob);
+      setTranscription(result.text);
+      toast.success('Transcription completed');
+    } catch (error) {
+      console.error('Transcription error:', error);
+      toast.error('Failed to transcribe audio');
+      setTranscription('');
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
 
   const startRecording = async () => {
     try {
@@ -32,8 +71,7 @@ const AudioRecorder = () => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         chunksRef.current = [];
         
-        // Here we would normally send the audio to a transcription service
-        setTranscription("This is a sample transcription. In a real application, we would send the audio to a transcription service like Whisper API.");
+        await transcribeAudio(audioBlob);
         
         // Clean up
         stream.getTracks().forEach(track => track.stop());
@@ -66,9 +104,7 @@ const AudioRecorder = () => {
       return;
     }
 
-    toast.success('Audio file uploaded successfully');
-    // Here we would normally send the file to a transcription service
-    setTranscription("This is a sample transcription from the uploaded file. In a real application, we would send the audio file to a transcription service like Whisper API.");
+    await transcribeAudio(file);
   };
 
   const copyToClipboard = async () => {
@@ -97,6 +133,7 @@ const AudioRecorder = () => {
                 ? 'bg-red-500 hover:bg-red-600'
                 : 'bg-accent-DEFAULT hover:bg-accent-hover'
             }`}
+            disabled={isTranscribing}
           >
             {isRecording ? (
               <Square className="w-6 h-6 text-white" />
@@ -108,6 +145,7 @@ const AudioRecorder = () => {
             onClick={triggerFileUpload}
             variant="outline"
             className="flex items-center gap-2"
+            disabled={isTranscribing}
           >
             <Upload className="w-4 h-4" />
             Upload Audio
@@ -121,7 +159,11 @@ const AudioRecorder = () => {
           />
         </div>
         <p className="text-neutral-600 font-medium">
-          {isRecording ? 'Recording...' : 'Click to start recording or upload an audio file'}
+          {isTranscribing 
+            ? 'Transcribing...' 
+            : isRecording 
+              ? 'Recording...' 
+              : 'Click to start recording or upload an audio file'}
         </p>
       </div>
 
