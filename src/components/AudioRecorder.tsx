@@ -32,6 +32,14 @@ const AudioRecorder = () => {
     }
   };
 
+  const convertBlobToAudioData = async (blob: Blob): Promise<Float32Array> => {
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    const audioData = audioBuffer.getChannelData(0);
+    return audioData;
+  };
+
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
       setIsTranscribing(true);
@@ -41,7 +49,8 @@ const AudioRecorder = () => {
         throw new Error('Transcription pipeline not initialized');
       }
 
-      const result = await transcriptionPipelineRef.current(audioBlob);
+      const audioData = await convertBlobToAudioData(audioBlob);
+      const result = await transcriptionPipelineRef.current(audioData);
       setTranscription(result.text);
       toast.success('Transcription completed');
     } catch (error) {
