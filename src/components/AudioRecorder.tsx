@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Mic, Square, Copy, Check, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { pipeline } from '@huggingface/transformers';
+import { HfInference } from '@huggingface/inference';
 import AudioVisualizer from './AudioVisualizer';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -15,42 +15,30 @@ const AudioRecorder = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const transcriptionPipelineRef = useRef<any>(null);
+  const inferenceClientRef = useRef<HfInference | null>(null);
 
-  const initTranscriptionPipeline = async () => {
-    if (!transcriptionPipelineRef.current) {
-      try {
-        transcriptionPipelineRef.current = await pipeline(
-          'automatic-speech-recognition',
-          'onnx-community/whisper-tiny.en',
-          { device: 'webgpu' }
-        );
-      } catch (error) {
-        console.error('Error initializing transcription pipeline:', error);
-        toast.error('Failed to initialize transcription. Please try again.');
-      }
+  const initInferenceClient = () => {
+    if (!inferenceClientRef.current) {
+      // @ts-ignore - we know the API key exists because we requested it
+      inferenceClientRef.current = new HfInference(process.env.HUGGINGFACE_API_KEY);
     }
-  };
-
-  const convertBlobToAudioData = async (blob: Blob): Promise<Float32Array> => {
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioContext = new AudioContext();
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    const audioData = audioBuffer.getChannelData(0);
-    return audioData;
   };
 
   const transcribeAudio = async (audioBlob: Blob) => {
     try {
       setIsTranscribing(true);
-      await initTranscriptionPipeline();
+      initInferenceClient();
       
-      if (!transcriptionPipelineRef.current) {
-        throw new Error('Transcription pipeline not initialized');
+      if (!inferenceClientRef.current) {
+        throw new Error('Inference client not initialized');
       }
 
-      const audioData = await convertBlobToAudioData(audioBlob);
-      const result = await transcriptionPipelineRef.current(audioData);
+      const result = await inferenceClientRef.current.automaticSpeechRecognition({
+        data: audioBlob,
+        model: "openai/whisper-large-v3-turbo",
+        provider: "hf-inference",
+      });
+
       setTranscription(result.text);
       toast.success('Transcription completed');
     } catch (error) {
