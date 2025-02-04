@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Copy, Check } from 'lucide-react';
+import { Mic, Square, Copy, Check, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import AudioVisualizer from './AudioVisualizer';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 const AudioRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -10,6 +12,7 @@ const AudioRecorder = () => {
   const [isCopied, setIsCopied] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const startRecording = async () => {
     try {
@@ -30,7 +33,6 @@ const AudioRecorder = () => {
         chunksRef.current = [];
         
         // Here we would normally send the audio to a transcription service
-        // For now, we'll just show a placeholder text
         setTranscription("This is a sample transcription. In a real application, we would send the audio to a transcription service like Whisper API.");
         
         // Clean up
@@ -55,6 +57,20 @@ const AudioRecorder = () => {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('audio/')) {
+      toast.error('Please upload an audio file');
+      return;
+    }
+
+    toast.success('Audio file uploaded successfully');
+    // Here we would normally send the file to a transcription service
+    setTranscription("This is a sample transcription from the uploaded file. In a real application, we would send the audio file to a transcription service like Whisper API.");
+  };
+
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(transcription);
@@ -66,25 +82,46 @@ const AudioRecorder = () => {
     }
   };
 
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6 animate-fade-in">
       <div className="flex flex-col items-center space-y-4">
-        <button
-          onClick={isRecording ? stopRecording : startRecording}
-          className={`p-4 rounded-full transition-all duration-200 ${
-            isRecording
-              ? 'bg-red-500 hover:bg-red-600'
-              : 'bg-accent-DEFAULT hover:bg-accent-hover'
-          }`}
-        >
-          {isRecording ? (
-            <Square className="w-6 h-6 text-white" />
-          ) : (
-            <Mic className="w-6 h-6 text-white" />
-          )}
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={isRecording ? stopRecording : startRecording}
+            className={`p-4 rounded-full transition-all duration-200 ${
+              isRecording
+                ? 'bg-red-500 hover:bg-red-600'
+                : 'bg-accent-DEFAULT hover:bg-accent-hover'
+            }`}
+          >
+            {isRecording ? (
+              <Square className="w-6 h-6 text-white" />
+            ) : (
+              <Mic className="w-6 h-6 text-white" />
+            )}
+          </button>
+          <Button
+            onClick={triggerFileUpload}
+            variant="outline"
+            className="flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Upload Audio
+          </Button>
+          <Input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+        </div>
         <p className="text-neutral-600 font-medium">
-          {isRecording ? 'Recording...' : 'Click to start recording'}
+          {isRecording ? 'Recording...' : 'Click to start recording or upload an audio file'}
         </p>
       </div>
 
