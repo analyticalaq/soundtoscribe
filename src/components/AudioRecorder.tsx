@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Mic, Square, Copy, Check, Upload, Key, Languages } from 'lucide-react';
 import { toast } from 'sonner';
@@ -238,7 +237,6 @@ const AudioRecorder = () => {
             onValueChange={setTargetLanguage}
           >
             <SelectTrigger className="w-full">
-              <Languages className="w-4 h-4 mr-2" />
               <SelectValue placeholder="Translate to" />
             </SelectTrigger>
             <SelectContent>
