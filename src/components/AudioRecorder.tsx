@@ -95,10 +95,15 @@ const AudioRecorder = () => {
         parameters: {
           target_language: targetLanguage,
         },
-      }) as TranslationResponse[];
+      });
 
-      setTranscription(translationResult[0].translation_text);
-      toast.success('Transcription and translation completed');
+      // Type guard to ensure we have the expected structure
+      if (typeof translationResult === 'object' && translationResult !== null && 'translation_text' in translationResult) {
+        setTranscription(translationResult.translation_text);
+        toast.success('Transcription and translation completed');
+      } else {
+        throw new Error('Unexpected translation response format');
+      }
     } catch (error) {
       console.error('Transcription/Translation error:', error);
       toast.error('Failed to transcribe and translate audio');
