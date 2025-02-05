@@ -22,14 +22,13 @@ const AudioRecorder = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [showApiKeyInput, setShowApiKeyInput] = useState(true);
-  const [selectedLanguage, setSelectedLanguage] = useState('auto');
+  const [targetLanguage, setTargetLanguage] = useState('en');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inferenceClientRef = useRef<HfInference | null>(null);
 
   const languages = [
-    { value: 'auto', label: 'Auto Detect' },
     { value: 'en', label: 'English' },
     { value: 'fr', label: 'French' },
     { value: 'es', label: 'Spanish' },
@@ -78,18 +77,27 @@ const AudioRecorder = () => {
         throw new Error('Inference client not initialized');
       }
 
+      // First, transcribe the audio in its original language
       const result = await inferenceClientRef.current.automaticSpeechRecognition({
         data: audioBlob,
         model: "openai/whisper-large-v3-turbo",
         provider: "hf-inference",
-        language: selectedLanguage === 'auto' ? undefined : selectedLanguage,
       });
 
-      setTranscription(result.text);
-      toast.success('Transcription completed');
+      // Then, translate the transcription to the target language
+      const translationResult = await inferenceClientRef.current.translation({
+        model: 'Helsinki-NLP/opus-mt-mul-en',  // Using a multilingual model
+        inputs: result.text,
+        parameters: {
+          target_language: targetLanguage,
+        },
+      });
+
+      setTranscription(translationResult[0].translation_text);
+      toast.success('Transcription and translation completed');
     } catch (error) {
-      console.error('Transcription error:', error);
-      toast.error('Failed to transcribe audio');
+      console.error('Transcription/Translation error:', error);
+      toast.error('Failed to transcribe and translate audio');
       setTranscription('');
     } finally {
       setIsTranscribing(false);
@@ -216,12 +224,12 @@ const AudioRecorder = () => {
       <div className="flex flex-col items-center space-y-4">
         <div className="w-full max-w-xs mb-4">
           <Select
-            value={selectedLanguage}
-            onValueChange={setSelectedLanguage}
+            value={targetLanguage}
+            onValueChange={setTargetLanguage}
           >
             <SelectTrigger className="w-full">
               <Languages className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Select Language" />
+              <SelectValue placeholder="Translate to" />
             </SelectTrigger>
             <SelectContent>
               {languages.map((lang) => (
@@ -267,7 +275,7 @@ const AudioRecorder = () => {
         </div>
         <p className="text-neutral-600 font-medium">
           {!apiKey ? 'Please enter your API key to start' :
-            isTranscribing ? 'Transcribing...' :
+            isTranscribing ? 'Transcribing and translating...' :
             isRecording ? 'Recording...' :
             'Click to start recording or upload an audio file'
           }
@@ -304,3 +312,4 @@ const AudioRecorder = () => {
 };
 
 export default AudioRecorder;
+
