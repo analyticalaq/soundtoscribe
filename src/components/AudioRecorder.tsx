@@ -1,5 +1,6 @@
+
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Copy, Check, Upload } from 'lucide-react';
+import { Mic, Square, Copy, Check, Upload, Key } from 'lucide-react';
 import { toast } from 'sonner';
 import { HfInference } from '@huggingface/inference';
 import AudioVisualizer from './AudioVisualizer';
@@ -12,19 +13,37 @@ const AudioRecorder = () => {
   const [transcription, setTranscription] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKeyInput, setShowApiKeyInput] = useState(true);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inferenceClientRef = useRef<HfInference | null>(null);
 
   const initInferenceClient = () => {
-    if (!inferenceClientRef.current) {
-      // @ts-ignore - we know the API key exists because we requested it
-      inferenceClientRef.current = new HfInference(process.env.HUGGINGFACE_API_KEY);
+    if (!inferenceClientRef.current && apiKey) {
+      inferenceClientRef.current = new HfInference(apiKey);
     }
   };
 
+  const handleApiKeySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!apiKey.trim()) {
+      toast.error('Please enter a valid API key');
+      return;
+    }
+    setShowApiKeyInput(false);
+    toast.success('API key saved');
+    initInferenceClient();
+  };
+
   const transcribeAudio = async (audioBlob: Blob) => {
+    if (!apiKey) {
+      toast.error('Please enter your Hugging Face API key first');
+      setShowApiKeyInput(true);
+      return;
+    }
+
     try {
       setIsTranscribing(true);
       initInferenceClient();
@@ -121,6 +140,52 @@ const AudioRecorder = () => {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6 animate-fade-in">
+      {showApiKeyInput ? (
+        <div className="mb-6 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
+          <form onSubmit={handleApiKeySubmit} className="space-y-4">
+            <div>
+              <label htmlFor="apiKey" className="block text-sm font-medium text-neutral-700 mb-2">
+                Enter your Hugging Face API Key
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="apiKey"
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="Enter your API key"
+                  className="flex-1"
+                />
+                <Button type="submit" className="flex items-center gap-2">
+                  <Key className="w-4 h-4" />
+                  Save Key
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm text-neutral-600">
+              Get your API key from{' '}
+              <a
+                href="https://huggingface.co/settings/tokens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent-DEFAULT hover:text-accent-hover underline"
+              >
+                Hugging Face Settings
+              </a>
+            </p>
+          </form>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          onClick={() => setShowApiKeyInput(true)}
+          className="flex items-center gap-2"
+        >
+          <Key className="w-4 h-4" />
+          Change API Key
+        </Button>
+      )}
+
       <div className="flex flex-col items-center space-y-4">
         <div className="flex gap-4">
           <button
@@ -130,7 +195,7 @@ const AudioRecorder = () => {
                 ? 'bg-red-500 hover:bg-red-600'
                 : 'bg-accent-DEFAULT hover:bg-accent-hover'
             }`}
-            disabled={isTranscribing}
+            disabled={isTranscribing || !apiKey}
           >
             {isRecording ? (
               <Square className="w-6 h-6 text-white" />
@@ -142,7 +207,7 @@ const AudioRecorder = () => {
             onClick={triggerFileUpload}
             variant="outline"
             className="flex items-center gap-2"
-            disabled={isTranscribing}
+            disabled={isTranscribing || !apiKey}
           >
             <Upload className="w-4 h-4" />
             Upload Audio
@@ -156,11 +221,11 @@ const AudioRecorder = () => {
           />
         </div>
         <p className="text-neutral-600 font-medium">
-          {isTranscribing 
-            ? 'Transcribing...' 
-            : isRecording 
-              ? 'Recording...' 
-              : 'Click to start recording or upload an audio file'}
+          {!apiKey ? 'Please enter your API key to start' :
+            isTranscribing ? 'Transcribing...' :
+            isRecording ? 'Recording...' :
+            'Click to start recording or upload an audio file'
+          }
         </p>
       </div>
 
