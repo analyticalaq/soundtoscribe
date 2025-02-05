@@ -14,6 +14,10 @@ import {
   SelectValue,
 } from "./ui/select";
 
+interface TranslationResponse {
+  translation_text: string;
+}
+
 const AudioRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
@@ -86,12 +90,12 @@ const AudioRecorder = () => {
 
       // Then, translate the transcription to the target language
       const translationResult = await inferenceClientRef.current.translation({
-        model: 'Helsinki-NLP/opus-mt-mul-en',  // Using a multilingual model
+        model: 'Helsinki-NLP/opus-mt-mul-en',
         inputs: result.text,
         parameters: {
           target_language: targetLanguage,
         },
-      });
+      }) as TranslationResponse[];
 
       setTranscription(translationResult[0].translation_text);
       toast.success('Transcription and translation completed');
@@ -312,4 +316,3 @@ const AudioRecorder = () => {
 };
 
 export default AudioRecorder;
-
