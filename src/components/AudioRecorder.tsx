@@ -1,11 +1,18 @@
 
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Copy, Check, Upload, Key } from 'lucide-react';
+import { Mic, Square, Copy, Check, Upload, Key, Languages } from 'lucide-react';
 import { toast } from 'sonner';
 import { HfInference } from '@huggingface/inference';
 import AudioVisualizer from './AudioVisualizer';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 const AudioRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -15,10 +22,29 @@ const AudioRecorder = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [showApiKeyInput, setShowApiKeyInput] = useState(true);
+  const [selectedLanguage, setSelectedLanguage] = useState('auto');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inferenceClientRef = useRef<HfInference | null>(null);
+
+  const languages = [
+    { value: 'auto', label: 'Auto Detect' },
+    { value: 'en', label: 'English' },
+    { value: 'fr', label: 'French' },
+    { value: 'es', label: 'Spanish' },
+    { value: 'de', label: 'German' },
+    { value: 'it', label: 'Italian' },
+    { value: 'pt', label: 'Portuguese' },
+    { value: 'nl', label: 'Dutch' },
+    { value: 'pl', label: 'Polish' },
+    { value: 'ru', label: 'Russian' },
+    { value: 'ja', label: 'Japanese' },
+    { value: 'ko', label: 'Korean' },
+    { value: 'zh', label: 'Chinese' },
+    { value: 'ar', label: 'Arabic' },
+    { value: 'hi', label: 'Hindi' },
+  ];
 
   const initInferenceClient = () => {
     if (!inferenceClientRef.current && apiKey) {
@@ -56,6 +82,7 @@ const AudioRecorder = () => {
         data: audioBlob,
         model: "openai/whisper-large-v3-turbo",
         provider: "hf-inference",
+        language: selectedLanguage === 'auto' ? undefined : selectedLanguage,
       });
 
       setTranscription(result.text);
@@ -187,6 +214,24 @@ const AudioRecorder = () => {
       )}
 
       <div className="flex flex-col items-center space-y-4">
+        <div className="w-full max-w-xs mb-4">
+          <Select
+            value={selectedLanguage}
+            onValueChange={setSelectedLanguage}
+          >
+            <SelectTrigger className="w-full">
+              <Languages className="w-4 h-4 mr-2" />
+              <SelectValue placeholder="Select Language" />
+            </SelectTrigger>
+            <SelectContent>
+              {languages.map((lang) => (
+                <SelectItem key={lang.value} value={lang.value}>
+                  {lang.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex gap-4">
           <button
             onClick={isRecording ? stopRecording : startRecording}
