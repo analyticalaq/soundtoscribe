@@ -85,25 +85,26 @@ const AudioRecorder = () => {
       const result = await inferenceClientRef.current.automaticSpeechRecognition({
         data: audioBlob,
         model: "openai/whisper-large-v3-turbo",
-        provider: "hf-inference",
       });
 
-      // Then, translate the transcription to the target language
-      const translationResult = await inferenceClientRef.current.translation({
-        model: 'Helsinki-NLP/opus-mt-mul-en',
-        inputs: result.text,
-        parameters: {
-          target_language: targetLanguage,
-        },
-      });
+      // Then, translate the transcription if needed
+      if (targetLanguage !== 'en') {
+        const translationResult = await inferenceClientRef.current.translation({
+          model: `Helsinki-NLP/opus-mt-en-${targetLanguage}`,
+          inputs: result.text,
+        });
 
-      // Type guard to ensure we have the expected structure
-      if (typeof translationResult === 'object' && translationResult !== null && 'translation_text' in translationResult) {
-        setTranscription(translationResult.translation_text);
-        toast.success('Transcription and translation completed');
+        if (typeof translationResult === 'object' && translationResult !== null && 'translation_text' in translationResult) {
+          setTranscription(translationResult.translation_text);
+        } else {
+          throw new Error('Unexpected translation response format');
+        }
       } else {
-        throw new Error('Unexpected translation response format');
+        // If target language is English, just use the transcription
+        setTranscription(result.text);
       }
+      
+      toast.success('Transcription and translation completed');
     } catch (error) {
       console.error('Transcription/Translation error:', error);
       toast.error('Failed to transcribe and translate audio');
