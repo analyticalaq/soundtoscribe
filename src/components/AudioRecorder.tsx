@@ -5,17 +5,6 @@ import { HfInference } from '@huggingface/inference';
 import AudioVisualizer from './AudioVisualizer';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
-
-interface TranslationResponse {
-  translation_text: string;
-}
 
 const AudioRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -25,28 +14,10 @@ const AudioRecorder = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [showApiKeyInput, setShowApiKeyInput] = useState(true);
-  const [targetLanguage, setTargetLanguage] = useState('en');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inferenceClientRef = useRef<HfInference | null>(null);
-
-  const languages = [
-    { value: 'en', label: 'English' },
-    { value: 'fr', label: 'French' },
-    { value: 'es', label: 'Spanish' },
-    { value: 'de', label: 'German' },
-    { value: 'it', label: 'Italian' },
-    { value: 'pt', label: 'Portuguese' },
-    { value: 'nl', label: 'Dutch' },
-    { value: 'pl', label: 'Polish' },
-    { value: 'ru', label: 'Russian' },
-    { value: 'ja', label: 'Japanese' },
-    { value: 'ko', label: 'Korean' },
-    { value: 'zh', label: 'Chinese' },
-    { value: 'ar', label: 'Arabic' },
-    { value: 'hi', label: 'Hindi' },
-  ];
 
   const initInferenceClient = () => {
     if (!inferenceClientRef.current && apiKey) {
@@ -80,33 +51,16 @@ const AudioRecorder = () => {
         throw new Error('Inference client not initialized');
       }
 
-      // First, transcribe the audio in its original language
       const result = await inferenceClientRef.current.automaticSpeechRecognition({
         data: audioBlob,
         model: "openai/whisper-large-v3-turbo",
       });
 
-      // Then, translate the transcription if needed
-      if (targetLanguage !== 'en') {
-        const translationResult = await inferenceClientRef.current.translation({
-          model: `Helsinki-NLP/opus-mt-en-${targetLanguage}`,
-          inputs: result.text,
-        });
-
-        if (typeof translationResult === 'object' && translationResult !== null && 'translation_text' in translationResult) {
-          setTranscription(translationResult.translation_text);
-        } else {
-          throw new Error('Unexpected translation response format');
-        }
-      } else {
-        // If target language is English, just use the transcription
-        setTranscription(result.text);
-      }
-      
-      toast.success('Transcription and translation completed');
+      setTranscription(result.text);
+      toast.success('Transcription completed');
     } catch (error) {
-      console.error('Transcription/Translation error:', error);
-      toast.error('Failed to transcribe and translate audio');
+      console.error('Transcription error:', error);
+      toast.error('Failed to transcribe audio');
       setTranscription('');
     } finally {
       setIsTranscribing(false);
@@ -231,23 +185,6 @@ const AudioRecorder = () => {
       )}
 
       <div className="flex flex-col items-center space-y-4">
-        <div className="w-full max-w-xs mb-4">
-          <Select
-            value={targetLanguage}
-            onValueChange={setTargetLanguage}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Translate to" />
-            </SelectTrigger>
-            <SelectContent>
-              {languages.map((lang) => (
-                <SelectItem key={lang.value} value={lang.value}>
-                  {lang.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         <div className="flex gap-4">
           <button
             onClick={isRecording ? stopRecording : startRecording}
@@ -283,7 +220,7 @@ const AudioRecorder = () => {
         </div>
         <p className="text-neutral-600 font-medium">
           {!apiKey ? 'Please enter your API key to start' :
-            isTranscribing ? 'Transcribing and translating...' :
+            isTranscribing ? 'Transcribing...' :
             isRecording ? 'Recording...' :
             'Click to start recording or upload an audio file'
           }
