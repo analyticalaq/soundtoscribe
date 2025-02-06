@@ -45,16 +45,19 @@ const AudioRecorder = () => {
         throw new Error('Inference client not initialized');
       }
 
-      // Use mbart model for better translation quality
-      const model = 'facebook/mbart-large-50-many-to-many-mmt';
+      // Use T5 model for translation
+      const model = 't5-base';
       console.log('Using translation model:', model);
       
-      const translationResult = await inferenceClientRef.current.translation({
+      // Format input for T5
+      const formattedInput = `translate English to ${targetLang}: ${text}`;
+      
+      const translationResult = await inferenceClientRef.current.textGeneration({
         model: model,
-        inputs: text,
+        inputs: formattedInput,
         parameters: {
-          src_lang: 'en_XX',
-          tgt_lang: `${targetLang}_XX`
+          max_new_tokens: 512,
+          temperature: 0.7
         }
       });
 
@@ -63,8 +66,8 @@ const AudioRecorder = () => {
       if (typeof translationResult === 'string') {
         setTranscription(translationResult);
         toast.success('Translation completed');
-      } else if (translationResult && 'translation_text' in translationResult) {
-        setTranscription(translationResult.translation_text);
+      } else if (translationResult && 'generated_text' in translationResult) {
+        setTranscription(translationResult.generated_text);
         toast.success('Translation completed');
       } else {
         throw new Error('Unexpected translation response format');
@@ -72,7 +75,6 @@ const AudioRecorder = () => {
     } catch (error) {
       console.error('Translation error:', error);
       toast.error('Failed to translate text. Please check your API key and try again.');
-      setIsTranslating(false);
     } finally {
       setIsTranslating(false);
     }
