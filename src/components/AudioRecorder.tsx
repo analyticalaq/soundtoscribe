@@ -45,12 +45,21 @@ const AudioRecorder = () => {
         throw new Error('Inference client not initialized');
       }
 
+      // Use the correct model format for translation
+      const model = `Helsinki-NLP/opus-mt-en-${targetLang}`;
+      console.log('Using translation model:', model);
+      
       const translationResult = await inferenceClientRef.current.translation({
-        model: `Helsinki-NLP/opus-mt-en-${targetLang}`,
+        model: model,
         inputs: text,
       });
 
-      if (typeof translationResult === 'object' && translationResult !== null && 'translation_text' in translationResult) {
+      console.log('Translation result:', translationResult);
+
+      if (typeof translationResult === 'string') {
+        setTranscription(translationResult);
+        toast.success('Translation completed');
+      } else if (translationResult && 'translation_text' in translationResult) {
         setTranscription(translationResult.translation_text);
         toast.success('Translation completed');
       } else {
@@ -58,7 +67,9 @@ const AudioRecorder = () => {
       }
     } catch (error) {
       console.error('Translation error:', error);
-      toast.error('Failed to translate text');
+      toast.error('Failed to translate text. Please check your API key and try again.');
+      // Reset translation state
+      setIsTranslating(false);
     } finally {
       setIsTranslating(false);
     }
