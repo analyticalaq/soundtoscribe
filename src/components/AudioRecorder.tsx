@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Copy, Check, Upload, Key, Languages } from 'lucide-react';
+import { Mic, Square, Copy, Check, Upload, Key } from 'lucide-react';
 import { toast } from 'sonner';
 import { HfInference } from '@huggingface/inference';
 import AudioVisualizer from './AudioVisualizer';
