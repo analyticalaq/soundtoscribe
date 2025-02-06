@@ -1,10 +1,21 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Copy, Check, Upload, Key } from 'lucide-react';
+import { Mic, Square, Copy, Check, Upload, Key, Languages } from 'lucide-react';
 import { toast } from 'sonner';
 import { HfInference } from '@huggingface/inference';
 import AudioVisualizer from './AudioVisualizer';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+
+interface TranslationResponse {
+  translation_text: string;
+}
 
 const AudioRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -12,12 +23,31 @@ const AudioRecorder = () => {
   const [transcription, setTranscription] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [showApiKeyInput, setShowApiKeyInput] = useState(true);
+  const [targetLanguage, setTargetLanguage] = useState('en');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inferenceClientRef = useRef<HfInference | null>(null);
+
+  const languages = [
+    { value: 'en', label: 'English' },
+    { value: 'fr', label: 'French' },
+    { value: 'es', label: 'Spanish' },
+    { value: 'de', label: 'German' },
+    { value: 'it', label: 'Italian' },
+    { value: 'pt', label: 'Portuguese' },
+    { value: 'nl', label: 'Dutch' },
+    { value: 'pl', label: 'Polish' },
+    { value: 'ru', label: 'Russian' },
+    { value: 'ja', label: 'Japanese' },
+    { value: 'ko', label: 'Korean' },
+    { value: 'zh', label: 'Chinese' },
+    { value: 'ar', label: 'Arabic' },
+    { value: 'hi', label: 'Hindi' },
+  ];
 
   const initInferenceClient = () => {
     if (!inferenceClientRef.current && apiKey) {
@@ -34,6 +64,47 @@ const AudioRecorder = () => {
     setShowApiKeyInput(false);
     toast.success('API key saved');
     initInferenceClient();
+  };
+
+  const translateText = async (text: string, targetLang: string) => {
+    if (!apiKey) {
+      toast.error('Please enter your Hugging Face API key first');
+      setShowApiKeyInput(true);
+      return;
+    }
+
+    try {
+      setIsTranslating(true);
+      initInferenceClient();
+      
+      if (!inferenceClientRef.current) {
+        throw new Error('Inference client not initialized');
+      }
+
+      const translationResult = await inferenceClientRef.current.translation({
+        model: `Helsinki-NLP/opus-mt-en-${targetLang}`,
+        inputs: text,
+      });
+
+      if (typeof translationResult === 'object' && translationResult !== null && 'translation_text' in translationResult) {
+        setTranscription(translationResult.translation_text);
+        toast.success('Translation completed');
+      } else {
+        throw new Error('Unexpected translation response format');
+      }
+    } catch (error) {
+      console.error('Translation error:', error);
+      toast.error('Failed to translate text');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleLanguageChange = async (newLanguage: string) => {
+    setTargetLanguage(newLanguage);
+    if (transcription && newLanguage !== 'en') {
+      await translateText(transcription, newLanguage);
+    }
   };
 
   const transcribeAudio = async (audioBlob: Blob) => {
@@ -185,6 +256,27 @@ const AudioRecorder = () => {
       )}
 
       <div className="flex flex-col items-center space-y-4">
+        {transcription && (
+          <div className="w-full max-w-xs mb-4">
+            <Select
+              value={targetLanguage}
+              onValueChange={handleLanguageChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Translate to" />
+                <Languages className="w-4 h-4 ml-2" />
+              </SelectTrigger>
+              <SelectContent>
+                {languages.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        
         <div className="flex gap-4">
           <button
             onClick={isRecording ? stopRecording : startRecording}
@@ -234,7 +326,9 @@ const AudioRecorder = () => {
       {transcription && (
         <div className="mt-8 space-y-4 animate-slide-up">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-neutral-800">Transcription</h3>
+            <h3 className="text-lg font-semibold text-neutral-800">
+              {isTranslating ? 'Translating...' : 'Transcription'}
+            </h3>
             <button
               onClick={copyToClipboard}
               className="flex items-center space-x-2 text-sm text-neutral-600 hover:text-neutral-800 transition-colors"
