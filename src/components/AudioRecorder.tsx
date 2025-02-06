@@ -1,21 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Copy, Check, Upload, Key, Languages } from 'lucide-react';
+import { Key } from 'lucide-react';
 import { toast } from 'sonner';
 import { HfInference } from '@huggingface/inference';
-import AudioVisualizer from './AudioVisualizer';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
-
-interface TranslationResponse {
-  translation_text: string;
-}
+import AudioVisualizer from './AudioVisualizer';
+import ApiKeyInput from './audio/ApiKeyInput';
+import RecordingControls from './audio/RecordingControls';
+import TranslationControls from './audio/TranslationControls';
+import TranscriptionOutput from './audio/TranscriptionOutput';
 
 const AudioRecorder = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -32,38 +24,10 @@ const AudioRecorder = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inferenceClientRef = useRef<HfInference | null>(null);
 
-  const languages = [
-    { value: 'en', label: 'English' },
-    { value: 'fr', label: 'French' },
-    { value: 'es', label: 'Spanish' },
-    { value: 'de', label: 'German' },
-    { value: 'it', label: 'Italian' },
-    { value: 'pt', label: 'Portuguese' },
-    { value: 'nl', label: 'Dutch' },
-    { value: 'pl', label: 'Polish' },
-    { value: 'ru', label: 'Russian' },
-    { value: 'ja', label: 'Japanese' },
-    { value: 'ko', label: 'Korean' },
-    { value: 'zh', label: 'Chinese' },
-    { value: 'ar', label: 'Arabic' },
-    { value: 'hi', label: 'Hindi' },
-  ];
-
   const initInferenceClient = () => {
     if (!inferenceClientRef.current && apiKey) {
       inferenceClientRef.current = new HfInference(apiKey);
     }
-  };
-
-  const handleApiKeySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!apiKey.trim()) {
-      toast.error('Please enter a valid API key');
-      return;
-    }
-    setShowApiKeyInput(false);
-    toast.success('API key saved');
-    initInferenceClient();
   };
 
   const translateText = async (text: string, targetLang: string) => {
@@ -158,7 +122,6 @@ const AudioRecorder = () => {
         
         await transcribeAudio(audioBlob);
         
-        // Clean up
         stream.getTracks().forEach(track => track.stop());
         setAudioStream(null);
       };
@@ -210,40 +173,12 @@ const AudioRecorder = () => {
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6 animate-fade-in">
       {showApiKeyInput ? (
-        <div className="mb-6 p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-          <form onSubmit={handleApiKeySubmit} className="space-y-4">
-            <div>
-              <label htmlFor="apiKey" className="block text-sm font-medium text-neutral-700 mb-2">
-                Enter your Hugging Face API Key
-              </label>
-              <div className="flex gap-2">
-                <Input
-                  id="apiKey"
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter your API key"
-                  className="flex-1"
-                />
-                <Button type="submit" className="flex items-center gap-2">
-                  <Key className="w-4 h-4" />
-                  Save Key
-                </Button>
-              </div>
-            </div>
-            <p className="text-sm text-neutral-600">
-              Get your API key from{' '}
-              <a
-                href="https://huggingface.co/settings/tokens"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-DEFAULT hover:text-accent-hover underline"
-              >
-                Hugging Face Settings
-              </a>
-            </p>
-          </form>
-        </div>
+        <ApiKeyInput
+          apiKey={apiKey}
+          setApiKey={setApiKey}
+          setShowApiKeyInput={setShowApiKeyInput}
+          initInferenceClient={initInferenceClient}
+        />
       ) : (
         <Button
           variant="outline"
@@ -255,96 +190,34 @@ const AudioRecorder = () => {
         </Button>
       )}
 
-      <div className="flex flex-col items-center space-y-4">
-        {transcription && (
-          <div className="w-full max-w-xs mb-4">
-            <Select
-              value={targetLanguage}
-              onValueChange={handleLanguageChange}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Translate to" />
-                <Languages className="w-4 h-4 ml-2" />
-              </SelectTrigger>
-              <SelectContent>
-                {languages.map((lang) => (
-                  <SelectItem key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        
-        <div className="flex gap-4">
-          <button
-            onClick={isRecording ? stopRecording : startRecording}
-            className={`p-4 rounded-full transition-all duration-200 ${
-              isRecording
-                ? 'bg-red-500 hover:bg-red-600'
-                : 'bg-accent-DEFAULT hover:bg-accent-hover'
-            }`}
-            disabled={isTranscribing || !apiKey}
-          >
-            {isRecording ? (
-              <Square className="w-6 h-6 text-white" />
-            ) : (
-              <Mic className="w-6 h-6 text-white" />
-            )}
-          </button>
-          <Button
-            onClick={triggerFileUpload}
-            variant="outline"
-            className="flex items-center gap-2"
-            disabled={isTranscribing || !apiKey}
-          >
-            <Upload className="w-4 h-4" />
-            Upload Audio
-          </Button>
-          <Input
-            ref={fileInputRef}
-            type="file"
-            accept="audio/*"
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-        </div>
-        <p className="text-neutral-600 font-medium">
-          {!apiKey ? 'Please enter your API key to start' :
-            isTranscribing ? 'Transcribing...' :
-            isRecording ? 'Recording...' :
-            'Click to start recording or upload an audio file'
-          }
-        </p>
-      </div>
+      <RecordingControls
+        isRecording={isRecording}
+        startRecording={startRecording}
+        stopRecording={stopRecording}
+        triggerFileUpload={triggerFileUpload}
+        fileInputRef={fileInputRef}
+        handleFileUpload={handleFileUpload}
+        isTranscribing={isTranscribing}
+        apiKey={apiKey}
+      />
 
       {isRecording && (
         <AudioVisualizer audioStream={audioStream} isRecording={isRecording} />
       )}
 
       {transcription && (
-        <div className="mt-8 space-y-4 animate-slide-up">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-neutral-800">
-              {isTranslating ? 'Translating...' : 'Transcription'}
-            </h3>
-            <button
-              onClick={copyToClipboard}
-              className="flex items-center space-x-2 text-sm text-neutral-600 hover:text-neutral-800 transition-colors"
-            >
-              {isCopied ? (
-                <Check className="w-4 h-4" />
-              ) : (
-                <Copy className="w-4 h-4" />
-              )}
-              <span>{isCopied ? 'Copied!' : 'Copy'}</span>
-            </button>
-          </div>
-          <div className="p-4 bg-neutral-50 rounded-lg border border-neutral-200">
-            <p className="text-neutral-700 leading-relaxed">{transcription}</p>
-          </div>
-        </div>
+        <>
+          <TranslationControls
+            targetLanguage={targetLanguage}
+            handleLanguageChange={handleLanguageChange}
+          />
+          <TranscriptionOutput
+            transcription={transcription}
+            isTranslating={isTranslating}
+            copyToClipboard={copyToClipboard}
+            isCopied={isCopied}
+          />
+        </>
       )}
     </div>
   );
