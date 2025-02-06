@@ -45,13 +45,17 @@ const AudioRecorder = () => {
         throw new Error('Inference client not initialized');
       }
 
-      // Use the correct model format for translation
-      const model = `Helsinki-NLP/opus-mt-en-${targetLang}`;
+      // Use mbart model for better translation quality
+      const model = 'facebook/mbart-large-50-many-to-many-mmt';
       console.log('Using translation model:', model);
       
       const translationResult = await inferenceClientRef.current.translation({
         model: model,
         inputs: text,
+        parameters: {
+          src_lang: 'en_XX',
+          tgt_lang: `${targetLang}_XX`
+        }
       });
 
       console.log('Translation result:', translationResult);
@@ -68,7 +72,6 @@ const AudioRecorder = () => {
     } catch (error) {
       console.error('Translation error:', error);
       toast.error('Failed to translate text. Please check your API key and try again.');
-      // Reset translation state
       setIsTranslating(false);
     } finally {
       setIsTranslating(false);
